@@ -1,0 +1,5 @@
+{
+  "name": "Calc3D - Precificador de Impressão 3D",
+  "description": "Uma calculadora profissional para precificação de serviços de impressão 3D, considerando custos de material, energia, falhas, embalagem e taxas de marketplace.",
+  "requestFramePermissions": []
+}

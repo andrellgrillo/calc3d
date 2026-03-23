@@ -18,7 +18,7 @@ import {
   Cell,
   LabelList
 } from 'recharts';
-import { toPng } from 'html-to-image';
+import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { 
   Calculator, 
@@ -52,7 +52,6 @@ import {
   Trash2,
   Layers,
   Palette,
-  FileDown,
   Coins
 } from 'lucide-react';
 import { InputField } from './components/InputField';
@@ -419,32 +418,31 @@ const AppContent: React.FC = () => {
     if (!state.results || isExporting) return;
     
     setIsExporting(true);
+    triggerToast("Gerando PDF...", "Aguarde um momento.", <Loader2 size={20} className="animate-spin" />);
     
-    // Delay to ensure any pending renders are complete
+    // Small delay to ensure everything is ready
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const element = document.getElementById('pdf-report');
     if (!element) {
         setIsExporting(false);
-        triggerToast("Erro!", "Elemento do relatório não encontrado.", <AlertTriangle size={20} className="text-white" />);
+        triggerToast("Erro!", "Relatório não encontrado.", <AlertTriangle size={20} className="text-white" />);
         return;
     }
 
     try {
-      // Use html-to-image to capture the report as a PNG
-      const dataUrl = await toPng(element, {
-        quality: 1.0,
-        pixelRatio: 2, // 2 is usually enough for A4 and avoids memory issues
+      // Use toJpeg for smaller file size
+      const dataUrl = await toJpeg(element, {
+        quality: 0.8,
+        pixelRatio: 1,
         backgroundColor: '#ffffff',
+        skipFonts: true, // Skip fonts to avoid SecurityError with cross-origin stylesheets
+        fontEmbedCSS: '', // Disable font embedding to prevent reading cross-origin rules
         style: {
-          position: 'relative',
-          top: '0',
-          left: '0',
-          opacity: '1',
-          visibility: 'visible',
-          display: 'block',
+          transform: 'none',
           margin: '0',
-          width: '800px' // Fixed width for consistent capture
+          padding: '40px',
+          width: '800px'
         }
       });
 
@@ -457,16 +455,30 @@ const AppContent: React.FC = () => {
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let heightLeft = pdfHeight;
+      let position = 0;
 
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Add first page
+      pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      // Add subsequent pages if content is longer than A4
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
       
       const safeFileName = (state.inputs.productName || 'Orcamento_3D').trim().replace(/[^a-z0-9]/gi, '_');
       pdf.save(`Relatorio_Calc3D_${safeFileName}.pdf`);
       
-      triggerToast("Sucesso!", "Seu relatório PDF foi gerado.", <Download size={20} className="text-white" />);
+      triggerToast("Sucesso!", "PDF gerado com sucesso.", <Download size={20} className="text-white" />);
     } catch (error) {
       console.error('PDF Generation Error:', error);
-      triggerToast("Erro!", "Falha ao gerar PDF. Tente novamente.", <AlertTriangle size={20} className="text-white" />);
+      triggerToast("Erro!", "Falha ao gerar o arquivo.", <AlertTriangle size={20} className="text-white" />);
     } finally {
       setIsExporting(false);
     }
@@ -762,7 +774,7 @@ const AppContent: React.FC = () => {
                 disabled={isExporting}
                 className="bg-blue-700 border border-blue-500 p-4 rounded-xl flex flex-col items-center gap-2 transition-all shadow-xl shadow-blue-900/40 hover:bg-blue-500 active:scale-95 disabled:opacity-50"
               >
-                {isExporting ? <Loader2 size={20} className="animate-spin" /> : <FileDown size={20} />}
+                {isExporting ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />}
                 <span className="text-[10px] font-black uppercase tracking-widest text-center">Exportar Relatório PDF</span>
               </button>
 
@@ -945,55 +957,73 @@ const AppContent: React.FC = () => {
 
     return (
       <div 
-        id="pdf-report" 
-        className="print:block p-10 font-sans text-black max-w-[800px] mx-auto bg-white border border-slate-300"
         style={{ 
-            position: 'absolute', 
-            top: '-10000px', 
-            left: '-10000px',
-            backgroundColor: 'white',
-            width: '800px'
+          position: 'fixed', 
+          top: 0, 
+          left: '-10000px', 
+          width: '800px', 
+          height: 'auto', 
+          overflow: 'visible', 
+          zIndex: -1,
+          pointerEvents: 'none',
+          backgroundColor: 'white'
         }}
+        className="no-print"
       >
-        {/* Fix for oklch and other CSS issues in capture libraries */}
-        <style dangerouslySetInnerHTML={{ __html: `
-          #pdf-report { 
-            color: #000000 !important; 
-            background-color: #ffffff !important; 
-            font-family: 'Inter', sans-serif !important; 
-            -webkit-print-color-adjust: exact;
-          }
-          #pdf-report * { border-color: #cbd5e1 !important; }
-          #pdf-report .text-black { color: #000000 !important; }
-          #pdf-report .text-white { color: #ffffff !important; }
-          #pdf-report .text-blue-600 { color: #2563eb !important; }
-          #pdf-report .bg-blue-600 { background-color: #2563eb !important; }
-          #pdf-report .border-blue-600 { border-color: #2563eb !important; }
-          #pdf-report .text-slate-600 { color: #475569 !important; }
-          #pdf-report .text-slate-500 { color: #64748b !important; }
-          #pdf-report .text-slate-400 { color: #94a3b8 !important; }
-          #pdf-report .text-slate-300 { color: #cbd5e1 !important; }
-          #pdf-report .bg-slate-50 { background-color: #f8fafc !important; }
-          #pdf-report .bg-slate-100 { background-color: #f1f5f9 !important; }
-          #pdf-report .text-slate-900 { color: #0f172a !important; }
-          #pdf-report .text-slate-800 { color: #1e293b !important; }
-          #pdf-report .text-slate-700 { color: #334155 !important; }
-          #pdf-report .text-red-500 { color: #ef4444 !important; }
-          #pdf-report .text-red-600 { color: #dc2626 !important; }
-          #pdf-report .bg-red-50 { background-color: #fef2f2 !important; }
-          #pdf-report .bg-emerald-50 { background-color: #ecfdf5 !important; }
-          #pdf-report .text-emerald-600 { color: #059669 !important; }
-          #pdf-report .bg-slate-900 { background-color: #0f172a !important; }
-          #pdf-report .border-slate-300 { border-color: #cbd5e1 !important; }
-          #pdf-report .border-slate-200 { border-color: #e2e8f0 !important; }
-          #pdf-report .border-slate-100 { border-color: #f1f5f9 !important; }
-          #pdf-report .border-red-100 { border-color: #fee2e2 !important; }
-          #pdf-report .border-emerald-100 { border-color: #d1fae5 !important; }
-          #pdf-report .bg-white { background-color: #ffffff !important; }
-          #pdf-report .border-b-4 { border-bottom-width: 4px !important; }
-          #pdf-report .border-t-4 { border-top-width: 4px !important; }
-          #pdf-report .shadow-md { box-shadow: none !important; }
-        ` }} />
+        <div 
+          id="pdf-report" 
+          className="p-10 font-sans text-black bg-white"
+          style={{ 
+              width: '800px',
+              backgroundColor: 'white'
+          }}
+        >
+          {/* Fix for oklch and other CSS issues in capture libraries */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            #pdf-report { 
+              color: #000000 !important; 
+              background-color: #ffffff !important; 
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; 
+            }
+            #pdf-report * { border-color: #cbd5e1 !important; }
+            #pdf-report .text-black { color: #000000 !important; }
+            #pdf-report .text-white { color: #ffffff !important; }
+            #pdf-report .text-blue-600 { color: #2563eb !important; }
+            #pdf-report .bg-blue-600 { background-color: #2563eb !important; }
+            #pdf-report .border-blue-600 { border-color: #2563eb !important; }
+            #pdf-report .text-slate-600 { color: #475569 !important; }
+            #pdf-report .text-slate-500 { color: #64748b !important; }
+            #pdf-report .text-slate-400 { color: #94a3b8 !important; }
+            #pdf-report .text-slate-300 { color: #cbd5e1 !important; }
+            #pdf-report .bg-slate-50 { background-color: #f8fafc !important; }
+            #pdf-report .bg-slate-100 { background-color: #f1f5f9 !important; }
+            #pdf-report .text-slate-900 { color: #0f172a !important; }
+            #pdf-report .text-slate-800 { color: #1e293b !important; }
+            #pdf-report .text-slate-700 { color: #334155 !important; }
+            #pdf-report .text-red-500 { color: #ef4444 !important; }
+            #pdf-report .text-red-600 { color: #dc2626 !important; }
+            #pdf-report .bg-red-50 { background-color: #fef2f2 !important; }
+            #pdf-report .bg-emerald-50 { background-color: #ecfdf5 !important; }
+            #pdf-report .text-emerald-600 { color: #059669 !important; }
+            #pdf-report .bg-slate-900 { background-color: #0f172a !important; }
+            #pdf-report .border-slate-300 { border-color: #cbd5e1 !important; }
+            #pdf-report .border-slate-200 { border-color: #e2e8f0 !important; }
+            #pdf-report .border-slate-100 { border-color: #f1f5f9 !important; }
+            #pdf-report .border-red-100 { border-color: #fee2e2 !important; }
+            #pdf-report .border-emerald-100 { border-color: #d1fae5 !important; }
+            #pdf-report .bg-white { background-color: #ffffff !important; }
+            #pdf-report .border-b-4 { border-bottom-width: 4px !important; }
+            #pdf-report .border-t-4 { border-top-width: 4px !important; }
+            #pdf-report .shadow-md { box-shadow: none !important; }
+            @media print {
+              #pdf-report {
+                position: static !important;
+                visibility: visible !important;
+                display: block !important;
+                width: 100% !important;
+              }
+            }
+          ` }} />
         {/* Cabeçalho do Relatório */}
         <div className="flex justify-between items-start mb-8 border-b-4 border-blue-600 pb-6">
           <div>
@@ -1163,8 +1193,9 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
@@ -1191,7 +1222,7 @@ const AppContent: React.FC = () => {
                   disabled={isExporting}
                   className="hidden md:flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase transition-all shadow-lg shadow-emerald-900 active:scale-95 disabled:opacity-50"
                 >
-                  {isExporting ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} 
+                  {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
                   Relatório PDF
                 </button>
                 <button 
@@ -1241,7 +1272,7 @@ const AppContent: React.FC = () => {
                   disabled={isExporting}
                   className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 disabled:opacity-50"
                 >
-                  {isExporting ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} 
+                  {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} 
                   Baixar PDF
                 </button>
                 <button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95">

@@ -786,6 +786,46 @@ const AppContent: React.FC = () => {
                       </div>
                     </div>
                   )}
+                  {item.id === 'embalagem' && (
+                    <div className="relative group/tooltip flex items-center">
+                      <HelpCircle size={12} className="text-slate-500 hover:text-blue-400 cursor-help transition-colors" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-slate-800 text-[10px] leading-relaxed text-slate-200 rounded-xl border border-slate-700 shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[100] pointer-events-none font-normal">
+                        <p className="font-black text-emerald-400 uppercase mb-1">Embalagem</p>
+                        <p>Custos diretos com caixas, plástico bolha, fitas e etiquetas para o envio seguro do produto.</p>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-800"></div>
+                      </div>
+                    </div>
+                  )}
+                  {item.id === 'extras' && (
+                    <div className="relative group/tooltip flex items-center">
+                      <HelpCircle size={12} className="text-slate-500 hover:text-blue-400 cursor-help transition-colors" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-slate-800 text-[10px] leading-relaxed text-slate-200 rounded-xl border border-slate-700 shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[100] pointer-events-none font-normal">
+                        <p className="font-black text-violet-400 uppercase mb-1">Custos Extras</p>
+                        <p>Outros gastos não categorizados, como manutenção, adesivos de mesa, colas ou pós-processamento.</p>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-800"></div>
+                      </div>
+                    </div>
+                  )}
+                  {item.id === 'falhas' && (
+                    <div className="relative group/tooltip flex items-center">
+                      <HelpCircle size={12} className="text-slate-500 hover:text-blue-400 cursor-help transition-colors" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-slate-800 text-[10px] leading-relaxed text-slate-200 rounded-xl border border-slate-700 shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[100] pointer-events-none font-normal">
+                        <p className="font-black text-red-400 uppercase mb-1">Margem de Falha</p>
+                        <p>Seguro para cobrir o custo de impressões perdidas. Garante que as peças boas paguem pelas peças que falharam.</p>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-800"></div>
+                      </div>
+                    </div>
+                  )}
+                  {item.id === 'lucro' && (
+                    <div className="relative group/tooltip flex items-center">
+                      <HelpCircle size={12} className="text-slate-500 hover:text-blue-400 cursor-help transition-colors" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-slate-800 text-[10px] leading-relaxed text-slate-200 rounded-xl border border-slate-700 shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[100] pointer-events-none font-normal">
+                        <p className="font-black text-purple-400 uppercase mb-1">Lucro Líquido</p>
+                        <p>O valor real que sobra para você após descontar todos os custos de produção e taxas de venda.</p>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-800"></div>
+                      </div>
+                    </div>
+                  )}
                   {item.id === 'taxas' && (
                     <button 
                       onClick={() => setActiveDetail('taxas')} 

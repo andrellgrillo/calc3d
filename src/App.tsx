@@ -434,7 +434,24 @@ const AppContent: React.FC = () => {
         useCORS: true, 
         letterRendering: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc: any) => {
+          const report = clonedDoc.getElementById('pdf-report');
+          if (report) {
+            const allElements = report.querySelectorAll('*');
+            allElements.forEach((el: any) => {
+              // Aggressively strip oklch from inline styles
+              const inlineStyle = el.getAttribute('style') || '';
+              if (inlineStyle.includes('oklch')) {
+                const newStyle = inlineStyle.replace(/oklch\([^)]+\)/g, '#000000');
+                el.setAttribute('style', newStyle);
+              }
+              
+              // Also check computed styles if possible, though it's harder to modify them here
+              // The style tag below should handle most cases via !important
+            });
+          }
+        }
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
@@ -943,38 +960,41 @@ const AppContent: React.FC = () => {
       >
         {/* Fix for html2pdf/html2canvas oklch error */}
         <style dangerouslySetInnerHTML={{ __html: `
-          #pdf-report { color: #000000 !important; background-color: #ffffff !important; }
+          #pdf-report { color: #000000 !important; background-color: #ffffff !important; font-family: sans-serif !important; }
+          #pdf-report * { border-color: #cbd5e1 !important; }
           #pdf-report .text-black { color: #000000 !important; }
           #pdf-report .text-white { color: #ffffff !important; }
           #pdf-report .text-blue-600 { color: #2563eb !important; }
           #pdf-report .bg-blue-600 { background-color: #2563eb !important; }
           #pdf-report .border-blue-600 { border-color: #2563eb !important; }
           #pdf-report .text-slate-600 { color: #475569 !important; }
+          #pdf-report .text-slate-500 { color: #64748b !important; }
           #pdf-report .text-slate-400 { color: #94a3b8 !important; }
+          #pdf-report .text-slate-300 { color: #cbd5e1 !important; }
           #pdf-report .bg-slate-50 { background-color: #f8fafc !important; }
+          #pdf-report .bg-slate-100 { background-color: #f1f5f9 !important; }
           #pdf-report .text-slate-900 { color: #0f172a !important; }
           #pdf-report .text-slate-800 { color: #1e293b !important; }
-          #pdf-report .text-red-500 { color: #ef4444 !important; }
-          #pdf-report .bg-slate-900 { background-color: #0f172a !important; }
-          #pdf-report .text-slate-300 { color: #cbd5e1 !important; }
           #pdf-report .text-slate-700 { color: #334155 !important; }
-          #pdf-report .bg-red-50 { background-color: #fef2f2 !important; }
+          #pdf-report .text-red-500 { color: #ef4444 !important; }
           #pdf-report .text-red-600 { color: #dc2626 !important; }
+          #pdf-report .bg-red-50 { background-color: #fef2f2 !important; }
           #pdf-report .bg-emerald-50 { background-color: #ecfdf5 !important; }
           #pdf-report .text-emerald-600 { color: #059669 !important; }
-          #pdf-report .text-slate-500 { color: #64748b !important; }
+          #pdf-report .bg-slate-900 { background-color: #0f172a !important; }
           #pdf-report .border-slate-300 { border-color: #cbd5e1 !important; }
           #pdf-report .border-slate-200 { border-color: #e2e8f0 !important; }
           #pdf-report .border-slate-100 { border-color: #f1f5f9 !important; }
           #pdf-report .border-red-100 { border-color: #fee2e2 !important; }
           #pdf-report .border-emerald-100 { border-color: #d1fae5 !important; }
-          #pdf-report .bg-slate-50\\/50 { background-color: rgba(248, 250, 252, 0.5) !important; }
-          #pdf-report .bg-slate-50\\/30 { background-color: rgba(248, 250, 252, 0.3) !important; }
-          #pdf-report .bg-white\\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
-          #pdf-report .bg-white\\/20 { background-color: rgba(255, 255, 255, 0.2) !important; }
+          #pdf-report .bg-slate-50\\/50 { background-color: #f8fafc !important; }
+          #pdf-report .bg-slate-50\\/30 { background-color: #f8fafc !important; }
+          #pdf-report .bg-white\\/10 { background-color: #ffffff !important; }
+          #pdf-report .bg-white\\/20 { background-color: #ffffff !important; }
           #pdf-report .bg-white { background-color: #ffffff !important; }
           #pdf-report .border-b-4 { border-bottom-width: 4px !important; }
           #pdf-report .border-t-4 { border-top-width: 4px !important; }
+          #pdf-report .shadow-md { box-shadow: none !important; }
         ` }} />
         {/* Cabeçalho do Relatório */}
         <div className="flex justify-between items-start mb-8 border-b-4 border-blue-600 pb-6">

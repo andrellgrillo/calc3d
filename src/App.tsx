@@ -18,6 +18,8 @@ import {
   Cell,
   LabelList
 } from 'recharts';
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 import { 
   Calculator, 
   Printer, 
@@ -411,70 +413,64 @@ const AppContent: React.FC = () => {
   }, [state.results, state.inputs, state.selectedPlatform, saveStatus]);
 
   /**
-   * PDF Generation using html2pdf.js library
-   * Fixed blank PDF issue by ensuring element is visible and allowing a render tick.
+   * PDF Generation using html-to-image and jsPDF
    */
-  const handleDownloadPDF = useCallback(() => {
+  const handleDownloadPDF = useCallback(async () => {
     if (!state.results || isExporting) return;
     
     setIsExporting(true);
+    
+    // Delay to ensure any pending renders are complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     const element = document.getElementById('pdf-report');
     if (!element) {
         setIsExporting(false);
+        triggerToast("Erro!", "Elemento do relatório não encontrado.", <AlertTriangle size={20} className="text-white" />);
         return;
     }
 
-    // Capture options
-    const opt = {
-      margin: 10,
-      filename: `Relatorio_Calc3D_${state.inputs.productName.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        letterRendering: true,
-        logging: false,
+    try {
+      // Use html-to-image to capture the report as a PNG
+      const dataUrl = await toPng(element, {
+        quality: 1.0,
+        pixelRatio: 2, // 2 is usually enough for A4 and avoids memory issues
         backgroundColor: '#ffffff',
-        onclone: (clonedDoc: any) => {
-          const report = clonedDoc.getElementById('pdf-report');
-          if (report) {
-            const allElements = report.querySelectorAll('*');
-            allElements.forEach((el: any) => {
-              // Aggressively strip oklch from inline styles
-              const inlineStyle = el.getAttribute('style') || '';
-              if (inlineStyle.includes('oklch')) {
-                const newStyle = inlineStyle.replace(/oklch\([^)]+\)/g, '#000000');
-                el.setAttribute('style', newStyle);
-              }
-              
-              // Also check computed styles if possible, though it's harder to modify them here
-              // The style tag below should handle most cases via !important
-            });
-          }
+        style: {
+          position: 'relative',
+          top: '0',
+          left: '0',
+          opacity: '1',
+          visibility: 'visible',
+          display: 'block',
+          margin: '0',
+          width: '800px' // Fixed width for consistent capture
         }
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+      });
 
-    // Use html2pdf global
-    const html2pdf = (window as any).html2pdf;
-    if (html2pdf) {
-      // Small timeout to ensure everything is rendered
-      setTimeout(() => {
-        html2pdf().set(opt).from(element).save().then(() => {
-          setIsExporting(false);
-          triggerToast("Sucesso!", "Seu relatório PDF foi gerado.", <FileDown size={20} className="text-white" />);
-        }).catch((err: any) => {
-          console.error("PDF Generation Error:", err);
-          setIsExporting(false);
-          triggerToast("Erro!", "Falha ao gerar PDF. Tente novamente.", <AlertTriangle size={20} className="text-white" />);
-        });
-      }, 100);
-    } else {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      const safeFileName = (state.inputs.productName || 'Orcamento_3D').trim().replace(/[^a-z0-9]/gi, '_');
+      pdf.save(`Relatorio_Calc3D_${safeFileName}.pdf`);
+      
+      triggerToast("Sucesso!", "Seu relatório PDF foi gerado.", <Download size={20} className="text-white" />);
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
+      triggerToast("Erro!", "Falha ao gerar PDF. Tente novamente.", <AlertTriangle size={20} className="text-white" />);
+    } finally {
       setIsExporting(false);
-      triggerToast("Erro!", "Biblioteca de PDF não carregada.", <AlertTriangle size={20} className="text-white" />);
     }
-  }, [state.results, state.inputs.productName, isExporting]);
+  }, [state.results, state.inputs.productName, isExporting, triggerToast]);
 
   const chartData = useMemo(() => {
     if (!state.results) return [];
@@ -952,15 +948,21 @@ const AppContent: React.FC = () => {
         id="pdf-report" 
         className="print:block p-10 font-sans text-black max-w-[800px] mx-auto bg-white border border-slate-300"
         style={{ 
-            position: isExporting ? 'static' : 'absolute', 
+            position: 'absolute', 
             top: '-10000px', 
             left: '-10000px',
-            backgroundColor: 'white'
+            backgroundColor: 'white',
+            width: '800px'
         }}
       >
-        {/* Fix for html2pdf/html2canvas oklch error */}
+        {/* Fix for oklch and other CSS issues in capture libraries */}
         <style dangerouslySetInnerHTML={{ __html: `
-          #pdf-report { color: #000000 !important; background-color: #ffffff !important; font-family: sans-serif !important; }
+          #pdf-report { 
+            color: #000000 !important; 
+            background-color: #ffffff !important; 
+            font-family: 'Inter', sans-serif !important; 
+            -webkit-print-color-adjust: exact;
+          }
           #pdf-report * { border-color: #cbd5e1 !important; }
           #pdf-report .text-black { color: #000000 !important; }
           #pdf-report .text-white { color: #ffffff !important; }
@@ -987,10 +989,6 @@ const AppContent: React.FC = () => {
           #pdf-report .border-slate-100 { border-color: #f1f5f9 !important; }
           #pdf-report .border-red-100 { border-color: #fee2e2 !important; }
           #pdf-report .border-emerald-100 { border-color: #d1fae5 !important; }
-          #pdf-report .bg-slate-50\\/50 { background-color: #f8fafc !important; }
-          #pdf-report .bg-slate-50\\/30 { background-color: #f8fafc !important; }
-          #pdf-report .bg-white\\/10 { background-color: #ffffff !important; }
-          #pdf-report .bg-white\\/20 { background-color: #ffffff !important; }
           #pdf-report .bg-white { background-color: #ffffff !important; }
           #pdf-report .border-b-4 { border-bottom-width: 4px !important; }
           #pdf-report .border-t-4 { border-top-width: 4px !important; }
@@ -1238,8 +1236,13 @@ const AppContent: React.FC = () => {
         <div className="max-w-lg mx-auto flex flex-col gap-2">
           {state.results && location.pathname === '/resultado' && (
              <div className="flex gap-2 px-2 pb-1">
-                <button onClick={handleDownloadPDF} className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95">
-                  <FileDown size={14} /> Baixar PDF
+                <button 
+                  onClick={handleDownloadPDF} 
+                  disabled={isExporting}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 disabled:opacity-50"
+                >
+                  {isExporting ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} 
+                  Baixar PDF
                 </button>
                 <button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95">
                   <Printer size={14} /> Imprimir

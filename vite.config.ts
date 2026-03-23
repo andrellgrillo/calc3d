@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: '/calc3d/',
+      base: './',
       server: {
         port: 3000,
         host: '0.0.0.0',
@@ -20,7 +20,6 @@ export default defineConfig(({ mode }) => {
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
       resolve: {
-        extensions: ['.tsx', '.ts', '.jsx', '.js'],
         alias: {
           '@': path.resolve(__dirname, 'src'),
         }

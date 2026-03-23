@@ -57,7 +57,7 @@ import { InputField } from './components/InputField';
 import { CalculationInputs, CalculationResults, Part } from './types';
 import { PLATFORM_PRESETS, DEFAULT_INPUTS } from './constants';
 
-const STORAGE_KEY = 'calc3d_inputs_v3';
+const STORAGE_KEY = 'calc3d_inputs_v4';
 const HISTORY_KEY = 'calc3d_history';
 
 // Padrão de Cores Sólidas
@@ -207,6 +207,46 @@ const formatBRL = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
 
+const ConfirmationModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+}> = ({ isOpen, onClose, onConfirm, title, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-6 border-b border-slate-700 bg-slate-900">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <AlertTriangle size={20} className="text-amber-500" />
+            {title}
+          </h3>
+        </div>
+        <div className="p-6 bg-slate-900">
+          <p className="text-sm text-slate-300 leading-relaxed">{message}</p>
+        </div>
+        <div className="p-4 bg-slate-800 flex gap-3 border-t border-slate-700">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all text-sm"
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={() => { onConfirm(); onClose(); }}
+            className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-red-900/20"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CalculationDetailModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -292,6 +332,7 @@ const AppContent: React.FC = () => {
   });
 
   const [toastMessage, setToastMessage] = useState<{title: string, desc: string, icon: React.ReactNode} | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [activeDetail, setActiveDetail] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -317,14 +358,16 @@ const AppContent: React.FC = () => {
   }, [state.inputs]);
 
   const handleReset = useCallback(() => {
-    if (confirm('Deseja realmente resetar todos os valores para o padrão?')) {
-      dispatch({ 
-        type: 'RESET', 
-        defaultInputs: DEFAULT_INPUTS, 
-        defaultPlatform: PLATFORM_PRESETS[0].name 
-      });
-      triggerToast("Reset realizado!", "Valores voltaram ao padrão original.", <RotateCcw className="text-white" size={20} />);
-    }
+    setShowResetConfirm(true);
+  }, []);
+
+  const confirmReset = useCallback(() => {
+    dispatch({ 
+      type: 'RESET', 
+      defaultInputs: DEFAULT_INPUTS, 
+      defaultPlatform: PLATFORM_PRESETS[0].name 
+    });
+    triggerToast("Reset realizado!", "Valores voltaram ao padrão original.", <RotateCcw className="text-white" size={20} />);
   }, []);
 
   const handleInputChange = useCallback((field: keyof CalculationInputs, value: any) => {
@@ -405,13 +448,14 @@ const AppContent: React.FC = () => {
           setIsExporting(false);
           triggerToast("Sucesso!", "Seu relatório PDF foi gerado.", <FileDown size={20} className="text-white" />);
         }).catch((err: any) => {
-          console.error(err);
+          console.error("PDF Generation Error:", err);
           setIsExporting(false);
+          triggerToast("Erro!", "Falha ao gerar PDF. Tente novamente.", <AlertTriangle size={20} className="text-white" />);
         });
       }, 100);
     } else {
       setIsExporting(false);
-      alert("Erro ao carregar biblioteca de PDF. Verifique sua conexão.");
+      triggerToast("Erro!", "Biblioteca de PDF não carregada.", <AlertTriangle size={20} className="text-white" />);
     }
   }, [state.results, state.inputs.productName, isExporting]);
 
@@ -897,6 +941,41 @@ const AppContent: React.FC = () => {
             backgroundColor: 'white'
         }}
       >
+        {/* Fix for html2pdf/html2canvas oklch error */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          #pdf-report { color: #000000 !important; background-color: #ffffff !important; }
+          #pdf-report .text-black { color: #000000 !important; }
+          #pdf-report .text-white { color: #ffffff !important; }
+          #pdf-report .text-blue-600 { color: #2563eb !important; }
+          #pdf-report .bg-blue-600 { background-color: #2563eb !important; }
+          #pdf-report .border-blue-600 { border-color: #2563eb !important; }
+          #pdf-report .text-slate-600 { color: #475569 !important; }
+          #pdf-report .text-slate-400 { color: #94a3b8 !important; }
+          #pdf-report .bg-slate-50 { background-color: #f8fafc !important; }
+          #pdf-report .text-slate-900 { color: #0f172a !important; }
+          #pdf-report .text-slate-800 { color: #1e293b !important; }
+          #pdf-report .text-red-500 { color: #ef4444 !important; }
+          #pdf-report .bg-slate-900 { background-color: #0f172a !important; }
+          #pdf-report .text-slate-300 { color: #cbd5e1 !important; }
+          #pdf-report .text-slate-700 { color: #334155 !important; }
+          #pdf-report .bg-red-50 { background-color: #fef2f2 !important; }
+          #pdf-report .text-red-600 { color: #dc2626 !important; }
+          #pdf-report .bg-emerald-50 { background-color: #ecfdf5 !important; }
+          #pdf-report .text-emerald-600 { color: #059669 !important; }
+          #pdf-report .text-slate-500 { color: #64748b !important; }
+          #pdf-report .border-slate-300 { border-color: #cbd5e1 !important; }
+          #pdf-report .border-slate-200 { border-color: #e2e8f0 !important; }
+          #pdf-report .border-slate-100 { border-color: #f1f5f9 !important; }
+          #pdf-report .border-red-100 { border-color: #fee2e2 !important; }
+          #pdf-report .border-emerald-100 { border-color: #d1fae5 !important; }
+          #pdf-report .bg-slate-50\\/50 { background-color: rgba(248, 250, 252, 0.5) !important; }
+          #pdf-report .bg-slate-50\\/30 { background-color: rgba(248, 250, 252, 0.3) !important; }
+          #pdf-report .bg-white\\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
+          #pdf-report .bg-white\\/20 { background-color: rgba(255, 255, 255, 0.2) !important; }
+          #pdf-report .bg-white { background-color: #ffffff !important; }
+          #pdf-report .border-b-4 { border-bottom-width: 4px !important; }
+          #pdf-report .border-t-4 { border-top-width: 4px !important; }
+        ` }} />
         {/* Cabeçalho do Relatório */}
         <div className="flex justify-between items-start mb-8 border-b-4 border-blue-600 pb-6">
           <div>
@@ -1073,6 +1152,13 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-200">
       {renderPrintableInvoice()}
       
+      <ConfirmationModal 
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={confirmReset}
+        title="Resetar Valores?"
+        message="Isso irá apagar todos os dados atuais e restaurar os valores padrão de fábrica. Esta ação não pode ser desfeita."
+      />
       <header className="bg-slate-900 border-b border-slate-700 sticky top-0 z-50 no-print shadow-xl">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
